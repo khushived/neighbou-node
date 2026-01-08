@@ -1,4 +1,5 @@
 import os
+import json
 from functools import lru_cache
 
 import firebase_admin
@@ -14,22 +15,25 @@ load_dotenv()
 @lru_cache
 def init_firebase_app():
     """
-    Initialize the Firebase Admin SDK using GOOGLE_APPLICATION_CREDENTIALS.
-    Make sure the environment variable points to your service account JSON file.
+    Initialize Firebase Admin SDK.
+    - For Render: use GOOGLE_APPLICATION_CREDENTIALS_JSON (JSON string)
+    - For local: use GOOGLE_APPLICATION_CREDENTIALS (file path)
     """
     if not firebase_admin._apps:
-        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        if not cred_path:
-            raise RuntimeError(
-                "GOOGLE_APPLICATION_CREDENTIALS is not set. "
-                "Point it to your Firebase service account JSON file."
-            )
-        if not os.path.exists(cred_path):
-            raise FileNotFoundError(
-                f"Firebase service account file not found: {cred_path}\n"
-                f"Please ensure the file exists and GOOGLE_APPLICATION_CREDENTIALS points to the correct path."
-            )
-        cred = credentials.Certificate(cred_path)
+        # Check for JSON string (deployment)
+        cred_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        if cred_json:
+            cred = credentials.Certificate(json.loads(cred_json))
+        else:
+            # Fall back to file path (local)
+            cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if not cred_path:
+                raise RuntimeError(
+                    "Set GOOGLE_APPLICATION_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS"
+                )
+            if not os.path.exists(cred_path):
+                raise FileNotFoundError(f"Firebase file not found: {cred_path}")
+            cred = credentials.Certificate(cred_path)
         firebase_admin.initialize_app(cred)
     return firebase_admin.get_app()
 
